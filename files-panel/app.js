@@ -742,8 +742,9 @@ async function loadKeysDirect() {
   setBusy(false);
 
   if (result.error) {
-    setKeyStatus(adminErrorMessage(result.error));
-    state.keys = [];
+    setKeyStatus(state.keys.length
+      ? "Key creada. Supabase no permite listar todavia, pero ya la tienes abajo para copiar."
+      : adminErrorMessage(result.error));
     renderKeys();
     return;
   }
@@ -813,9 +814,16 @@ async function generateKeys(event) {
 
   els.generatedKeysText.textContent = createdKeys.join("\n");
   els.generatedKeysBox.classList.toggle("hidden", createdKeys.length === 0);
+  mergeCreatedKeys(createdKeys, duration, tryhardLabel(els.keyLabelInput.value.trim()), capabilities);
+  renderKeys();
   setKeyStatus(`${createdKeys.length} key(s) TRYHARD creada(s)${useDirectMode ? " en modo directo" : ""}.`);
   els.customKeyInput.value = "";
   await loadKeys();
+  if (createdKeys.length && !state.keys.some((item) => createdKeys.includes(normalizeKey(item.license_key)))) {
+    mergeCreatedKeys(createdKeys, duration, tryhardLabel(els.keyLabelInput.value.trim()), capabilities);
+    renderKeys();
+    setKeyStatus(`${createdKeys.length} key(s) TRYHARD creada(s). Copiala desde la lista o desde Keys creadas.`);
+  }
 }
 
 async function setLicenseStatus(key, status) {
@@ -1340,6 +1348,35 @@ function normalizeDirectLicenseRow(row) {
     created_at: row.created_at || "",
     updated_at: row.updated_at || row.created_at || "",
   };
+}
+
+function mergeCreatedKeys(keys, durationHours, label, capabilities) {
+  const now = new Date().toISOString();
+  const expiresAt = durationHours > 0
+    ? new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString()
+    : "";
+  const existing = new Map(state.keys.map((item) => [normalizeKey(item.license_key), item]));
+
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    existing.set(normalized, {
+      ...(existing.get(normalized) || {}),
+      license_key: normalized,
+      status: existing.get(normalized)?.status || "available",
+      label,
+      device_id: existing.get(normalized)?.device_id || "",
+      activated_at: existing.get(normalized)?.activated_at || "",
+      used_at: existing.get(normalized)?.used_at || "",
+      expires_at: existing.get(normalized)?.expires_at || expiresAt,
+      capabilities,
+      created_at: existing.get(normalized)?.created_at || now,
+      updated_at: now,
+    });
+  }
+
+  state.keys = Array.from(existing.values()).sort((a, b) =>
+    String(b.created_at || "").localeCompare(String(a.created_at || ""))
+  );
 }
 
 function normalizeKey(value) {

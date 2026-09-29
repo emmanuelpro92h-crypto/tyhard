@@ -316,9 +316,9 @@ private struct GreegLicenseView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    AppTheme.pageBackground,
+                    AppTheme.accent.opacity(0.38),
                     Color.white,
-                    AppTheme.pageBackground
+                    AppTheme.accentGlow.opacity(0.26)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -327,7 +327,7 @@ private struct GreegLicenseView: View {
             VStack(spacing: 22) {
                 Spacer()
                 AppLogo(size: 104)
-                    .shadow(color: Color.black.opacity(0.12), radius: 24)
+                    .shadow(color: AppTheme.accentGlow.opacity(0.45), radius: 26)
 
                 VStack(spacing: 7) {
                     Text("Tryhard")
@@ -341,8 +341,8 @@ private struct GreegLicenseView: View {
                 VStack(spacing: 12) {
                     HStack(spacing: 10) {
                         Image(systemName: "key.fill")
-                            .foregroundStyle(.black)
-                        TextField("GLIZZY-ABCD-EF12-3456", text: $key)
+                            .foregroundStyle(AppTheme.accentGlow)
+                        TextField("TRYHARD-ABCD-EF12-3456", text: $key)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .foregroundStyle(.black)
@@ -351,8 +351,8 @@ private struct GreegLicenseView: View {
                     .padding(.horizontal, 16)
                     .frame(height: 54)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 15))
-                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.black.opacity(0.14)))
-                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+                    .overlay(RoundedRectangle(cornerRadius: 15).stroke(AppTheme.accentGlow.opacity(0.55)))
+                    .shadow(color: AppTheme.accent.opacity(0.24), radius: 12, x: 0, y: 6)
 
                     Button(action: primaryAction) {
                         HStack(spacing: 10) {
@@ -367,7 +367,14 @@ private struct GreegLicenseView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
-                        .background(Color.black, in: RoundedRectangle(cornerRadius: 15))
+                        .background(
+                            LinearGradient(
+                                colors: [AppTheme.accent, AppTheme.accentGlow, Color.black],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            in: RoundedRectangle(cornerRadius: 15)
+                        )
                         .foregroundStyle(.white)
                     }
                     .disabled(isLoading)
