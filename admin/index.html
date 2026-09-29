@@ -161,9 +161,15 @@
                 <input id="keyQuantityInput" type="number" min="1" max="200" value="1" required />
               </label>
               <label>
-                Duracion en horas
+                Duracion
                 <input id="keyDurationInput" type="number" min="0" placeholder="0 = sin vencimiento" />
-                <span class="fieldHint">Ejemplo: 24 para un dia, 168 para una semana. Vacio o 0 no vence.</span>
+                <select id="keyDurationUnitInput">
+                  <option value="24">dias</option>
+                  <option value="168">semanas</option>
+                  <option value="720">meses</option>
+                  <option value="1">horas</option>
+                </select>
+                <span class="fieldHint">Ejemplo: 1 dia, 1 semana o 1 mes. Vacio o 0 no vence.</span>
               </label>
               <label>
                 Etiqueta

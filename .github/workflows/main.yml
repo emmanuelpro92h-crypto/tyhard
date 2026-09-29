@@ -80,7 +80,7 @@ jobs:
       - name: Empaquetar panel admin
         run: |
           set -euo pipefail
-          zip -r TRYHARD_ADMIN_panel.zip admin keys-panel files-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/setup_all.sql supabase/licenses_setup.sql supabase/TRYHARD_KEYS_BACKEND_REQUIRED.sql supabase/remote_content_setup.sql supabase/admin_emails_setup.sql
+          zip -r TRYHARD_ADMIN_panel.zip admin keys-panel files-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/TRYHARD_COMPLETE_BACKEND.sql supabase/setup_all.sql supabase/licenses_setup.sql supabase/TRYHARD_KEYS_BACKEND_REQUIRED.sql supabase/remote_content_setup.sql supabase/admin_emails_setup.sql
           ls -lh TRYHARD_ADMIN_panel.zip
 
       - name: Subir panel admin
@@ -94,7 +94,7 @@ jobs:
       - name: Empaquetar panel de keys portable
         run: |
           set -euo pipefail
-          zip -r TRYHARD_KEYS_panel.zip keys-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/setup_all.sql supabase/licenses_setup.sql supabase/TRYHARD_KEYS_BACKEND_REQUIRED.sql supabase/admin_emails_setup.sql
+          zip -r TRYHARD_KEYS_panel.zip keys-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/TRYHARD_COMPLETE_BACKEND.sql supabase/setup_all.sql supabase/licenses_setup.sql supabase/TRYHARD_KEYS_BACKEND_REQUIRED.sql supabase/admin_emails_setup.sql
           ls -lh TRYHARD_KEYS_panel.zip
 
       - name: Subir panel de keys
@@ -108,7 +108,7 @@ jobs:
       - name: Empaquetar panel de archivos portable
         run: |
           set -euo pipefail
-          zip -r TRYHARD_FILES_panel.zip files-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/setup_all.sql supabase/remote_content_setup.sql supabase/admin_emails_setup.sql
+          zip -r TRYHARD_FILES_panel.zip files-panel CONFIGURAR-SUPABASE-TRYHARD.txt supabase/TRYHARD_COMPLETE_BACKEND.sql supabase/setup_all.sql supabase/remote_content_setup.sql supabase/admin_emails_setup.sql
           ls -lh TRYHARD_FILES_panel.zip
 
       - name: Subir panel de archivos

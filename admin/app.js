@@ -242,6 +242,7 @@ const els = {
   keyForm: $("#keyForm"),
   keyQuantityInput: $("#keyQuantityInput"),
   keyDurationInput: $("#keyDurationInput"),
+  keyDurationUnitInput: $("#keyDurationUnitInput"),
   keyLabelInput: $("#keyLabelInput"),
   customKeyInput: $("#customKeyInput"),
   specialAssetInput: $("#specialAssetInput"),
@@ -759,7 +760,9 @@ async function generateKeys(event) {
   if (!state.session || state.busy) return;
 
   const quantity = Math.max(1, Math.min(Number(els.keyQuantityInput.value || 1), 200));
-  const duration = Number(els.keyDurationInput.value || 0);
+  const durationAmount = Math.max(0, Number(els.keyDurationInput.value || 0));
+  const durationUnitHours = Math.max(1, Number(els.keyDurationUnitInput?.value || 24));
+  const duration = durationAmount > 0 ? Math.round(durationAmount * durationUnitHours) : 0;
   const customKey = normalizeKey(els.customKeyInput.value);
   if (customKey && quantity !== 1) {
     setKeyStatus("Para una key personalizada, la cantidad debe ser 1.");
@@ -1317,19 +1320,19 @@ function adminErrorMessage(error) {
     return "El login funciono, pero ese correo aun no tiene permiso admin. Ejecuta los SQL de Supabase y refresca.";
   }
   if (/could not find the function|function .* does not exist|schema cache/i.test(message)) {
-    return "Falta actualizar el backend. Ejecuta supabase/licenses_setup.sql y supabase/remote_content_setup.sql en Supabase y refresca.";
+    return "Falta actualizar el backend. Ejecuta supabase/TRYHARD_COMPLETE_BACKEND.sql en Supabase y refresca.";
   }
   if (/duplicate key|unique constraint|target_path|target_bundle_path/i.test(message)) {
-    return "Supabase todavia esta bloqueando rutas duplicadas. Ejecuta supabase/remote_content_setup.sql en Supabase una vez, refresca el panel y vuelve a guardar.";
+    return "Supabase todavia esta bloqueando rutas duplicadas. Ejecuta supabase/TRYHARD_COMPLETE_BACKEND.sql en Supabase una vez, refresca el panel y vuelve a guardar.";
   }
   if (/relation .* does not exist|remote_content/i.test(message)) {
-    return "Faltan las tablas del panel. Ejecuta supabase/remote_content_setup.sql en Supabase.";
+    return "Faltan las tablas del panel. Ejecuta supabase/TRYHARD_COMPLETE_BACKEND.sql en Supabase.";
   }
   if (/could not find the table .*licenses|relation .*licenses.* does not exist/i.test(message)) {
-    return "Falta instalar el backend de keys. Ejecuta supabase/licenses_setup.sql o supabase/setup_all.sql en Supabase.";
+    return "Falta instalar el backend de keys. Ejecuta supabase/TRYHARD_COMPLETE_BACKEND.sql en Supabase.";
   }
   if (/slug/i.test(message) && /duplicate|unique/i.test(message)) {
-    return "Ya existe un slug igual. El backend actualizado lo corrige automaticamente; ejecuta supabase/remote_content_setup.sql y refresca.";
+    return "Ya existe un slug igual. El backend actualizado lo corrige automaticamente; ejecuta supabase/TRYHARD_COMPLETE_BACKEND.sql y refresca.";
   }
   return message;
 }
