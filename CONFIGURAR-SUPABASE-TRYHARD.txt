@@ -1,19 +1,16 @@
-Configuracion pendiente de Supabase para Tryhard
+Configuracion de Supabase para Tryhard
 
 El proyecto ya apunta a:
 https://gvnrcivehodixrvvtevl.supabase.co
 
-Falta pegar la publishable key anon/public del proyecto Tryhard en estos archivos:
+La publishable key anon/public de Tryhard ya esta configurada en:
 
 - ThreeOneOSFive/App.swift
 - admin/app.js
 - keys-panel/app.js
 - files-panel/app.js
 
-Busca exactamente:
-PON_AQUI_PUBLISHABLE_KEY_TRYHARD
-
-Despues de pegarla, ejecuta en Supabase SQL Editor:
+Ejecuta en Supabase SQL Editor si todavia no preparaste las tablas, funciones y storage:
 supabase/setup_all.sql
 
 Los paneles portables abren asi:

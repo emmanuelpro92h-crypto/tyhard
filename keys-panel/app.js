@@ -1,7 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const SUPABASE_URL = "https://gvnrcivehodixrvvtevl.supabase.co";
-const SUPABASE_KEY = "PON_AQUI_PUBLISHABLE_KEY_TRYHARD";
+const SUPABASE_KEY = "sb_publishable_cYxYOc__uyN0ft1emUBf9g_8tvCsHku";
 const BUCKET = "tryhard-content";
 const SCRIPT_VERSION = "20260923-target-help";
 const CLIENT_PREFIX = "tryhard-";
