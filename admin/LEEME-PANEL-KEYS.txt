@@ -1,4 +1,4 @@
-PANEL DE KEYS - GLIZZY NET
+PANEL DE KEYS - TRYHARD
 
 1. Copia esta carpeta completa a la otra PC.
 2. Abre ABRIR-PANEL-KEYS.cmd.

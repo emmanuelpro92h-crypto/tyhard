@@ -101,7 +101,7 @@ struct AppLogo: View {
 
     var body: some View {
         Group {
-            if let logo = UIImage(named: "GllyziLogo") {
+            if let logo = UIImage(named: "TryhardLogo") {
                 Image(uiImage: logo)
                     .resizable()
                     .scaledToFit()
