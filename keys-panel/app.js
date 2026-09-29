@@ -260,7 +260,7 @@ init();
 
 async function init() {
   if (SUPABASE_KEY.startsWith("PON_AQUI_")) {
-    setLoginStatus("Falta pegar la publishable key del Supabase nuevo de Tryhard en admin/app.js.", true);
+    setLoginStatus("Falta pegar la publishable key del Supabase nuevo de Tryhard en este app.js.", true);
     return;
   }
 

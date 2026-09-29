@@ -1,0 +1,12 @@
+PANEL DE KEYS - TRYHARD
+
+1. Descomprime esta carpeta en cualquier PC o laptop.
+2. Abre ABRIR-PANEL-KEYS.cmd.
+3. Entra con correo admin.
+4. Crea keys por horas, dias o meses:
+   24 = 1 dia
+   168 = 1 semana
+   720 = 1 mes
+   2160 = 3 meses
+
+La PC necesita internet. 127.0.0.1 siempre es la PC donde se abrio el panel.

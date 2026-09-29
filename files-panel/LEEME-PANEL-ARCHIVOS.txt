@@ -1,0 +1,7 @@
+Panel de Archivos Tryhard
+
+1. Abre ABRIR-PANEL-ARCHIVOS.cmd.
+2. Entra con el correo y contrasena de admin.
+3. Usa este panel solo para subir, reemplazar, publicar o desactivar archivos.
+
+Este panel necesita la publishable key del proyecto Supabase Tryhard dentro de app.js.

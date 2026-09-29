@@ -1,12 +1,12 @@
 import SwiftUI
 
 enum AppTheme {
-    static let accent = Color(red: 0.08, green: 0.08, blue: 0.09)
-    static let accentGlow = Color(red: 0.00, green: 0.00, blue: 0.00)
-    static let mint = Color(red: 0.08, green: 0.68, blue: 0.34)
-    static let amber = Color(red: 0.82, green: 0.52, blue: 0.12)
-    static let pageBackground = Color(red: 0.965, green: 0.962, blue: 0.952)
-    static let consoleBackground = Color(red: 0.055, green: 0.055, blue: 0.060)
+    static let accent = Color(red: 1.0, green: 0.80, blue: 0.04)
+    static let accentGlow = Color(red: 0.98, green: 0.68, blue: 0.0)
+    static let mint = Color(red: 0.14, green: 0.70, blue: 0.28)
+    static let amber = Color(red: 1.0, green: 0.72, blue: 0.0)
+    static let pageBackground = Color(red: 0.975, green: 0.965, blue: 0.920)
+    static let consoleBackground = Color(red: 0.035, green: 0.033, blue: 0.028)
     static let cardBackground = Color.white
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
@@ -108,7 +108,7 @@ struct AppLogo: View {
                     .padding(size * 0.12)
                     .background(
                         LinearGradient(
-                            colors: [Color.white, Color.black.opacity(0.08)],
+                            colors: [Color.white, AppTheme.accent.opacity(0.28)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )

@@ -1,0 +1,28 @@
+Configuracion pendiente de Supabase para Tryhard
+
+El proyecto ya apunta a:
+https://gvnrcivehodixrvvtevl.supabase.co
+
+Falta pegar la publishable key anon/public del proyecto Tryhard en estos archivos:
+
+- ThreeOneOSFive/App.swift
+- admin/app.js
+- keys-panel/app.js
+- files-panel/app.js
+
+Busca exactamente:
+PON_AQUI_PUBLISHABLE_KEY_TRYHARD
+
+Despues de pegarla, ejecuta en Supabase SQL Editor:
+supabase/setup_all.sql
+
+Los paneles portables abren asi:
+
+- keys-panel/ABRIR-PANEL-KEYS.cmd
+- files-panel/ABRIR-PANEL-ARCHIVOS.cmd
+
+Duracion de keys:
+- 24 horas = 1 dia
+- 168 horas = 1 semana
+- 720 horas = 1 mes aproximado
+- 2160 horas = 3 meses aproximados
