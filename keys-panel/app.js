@@ -711,6 +711,10 @@ async function loadKeys() {
   setBusy(false);
 
   if (error) {
+    if (isMissingBackendError(error)) {
+      await loadKeysDirect();
+      return;
+    }
     setKeyStatus(adminErrorMessage(error));
     state.keys = [];
     renderKeys();
@@ -719,6 +723,33 @@ async function loadKeys() {
 
   state.keys = (data ?? []).filter(isTRYHARDKey);
   setKeyStatus("Listo. Puedes crear, copiar, pausar o bloquear keys.");
+  renderKeys();
+}
+
+async function loadKeysDirect() {
+  setBusy(true, "Cargando keys en modo directo...");
+  let result = await supabaseClient
+    .from("licenses")
+    .select("license_key,status,label,device_id,activated_at,used_at,expires_at,capabilities,created_at,updated_at")
+    .order("created_at", { ascending: false });
+
+  if (result.error && /column .* does not exist|schema cache/i.test(result.error.message || "")) {
+    result = await supabaseClient
+      .from("licenses")
+      .select("license_key,device_id,is_active,activated_at,used_at,created_at")
+      .order("created_at", { ascending: false });
+  }
+  setBusy(false);
+
+  if (result.error) {
+    setKeyStatus(adminErrorMessage(result.error));
+    state.keys = [];
+    renderKeys();
+    return;
+  }
+
+  state.keys = (result.data ?? []).map(normalizeDirectLicenseRow).filter(isTRYHARDKey);
+  setKeyStatus("Listo. Panel de keys funcionando en modo directo.");
   renderKeys();
 }
 
@@ -743,21 +774,35 @@ async function generateKeys(event) {
   const createdKeys = [];
   let firstError = null;
   const total = customKey ? 1 : quantity;
+  let useDirectMode = false;
 
   for (let index = 0; index < total; index += 1) {
     const nextKey = customKey || makeTRYHARDKey();
-    const { data, error } = await supabaseClient.rpc("admin_generate_licenses", {
-      p_quantity: 1,
-      p_duration_hours: duration > 0 ? duration : null,
-      p_label: tryhardLabel(els.keyLabelInput.value.trim()),
-      p_capabilities: capabilities,
-      p_custom_license_key: nextKey,
-    });
-    if (error) {
+    try {
+      if (!useDirectMode) {
+        const { data, error } = await supabaseClient.rpc("admin_generate_licenses", {
+          p_quantity: 1,
+          p_duration_hours: duration > 0 ? duration : null,
+          p_label: tryhardLabel(els.keyLabelInput.value.trim()),
+          p_capabilities: capabilities,
+          p_custom_license_key: nextKey,
+        });
+        if (!error) {
+          createdKeys.push(...(data?.keys ?? [nextKey]));
+          continue;
+        }
+        if (!isMissingBackendError(error)) {
+          throw error;
+        }
+        useDirectMode = true;
+      }
+
+      await createLicenseDirect(nextKey, duration, tryhardLabel(els.keyLabelInput.value.trim()), capabilities);
+      createdKeys.push(nextKey);
+    } catch (error) {
       firstError = error;
       break;
     }
-    createdKeys.push(...(data?.keys ?? [nextKey]));
   }
   setBusy(false);
 
@@ -768,7 +813,7 @@ async function generateKeys(event) {
 
   els.generatedKeysText.textContent = createdKeys.join("\n");
   els.generatedKeysBox.classList.toggle("hidden", createdKeys.length === 0);
-  setKeyStatus(`${createdKeys.length} key(s) TRYHARD creada(s).`);
+  setKeyStatus(`${createdKeys.length} key(s) TRYHARD creada(s)${useDirectMode ? " en modo directo" : ""}.`);
   els.customKeyInput.value = "";
   await loadKeys();
 }
@@ -783,11 +828,75 @@ async function setLicenseStatus(key, status) {
   setBusy(false);
 
   if (error || data?.success === false) {
+    if (error && isMissingBackendError(error)) {
+      await setLicenseStatusDirect(key, status);
+      return;
+    }
     setKeyStatus(adminErrorMessage(error || { message: data?.message || "No se pudo actualizar la key." }));
     return;
   }
 
   setKeyStatus(`Key ${status}.`);
+  await loadKeys();
+}
+
+async function createLicenseDirect(key, durationHours, label, capabilities) {
+  const expiresAt = durationHours > 0
+    ? new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString()
+    : null;
+  const fullPayload = {
+    license_key: key,
+    label,
+    capabilities,
+    expires_at: expiresAt,
+    created_by: state.session?.user?.id || null,
+    status: "available",
+    is_active: true,
+  };
+  const compatiblePayload = {
+    license_key: key,
+    label,
+    capabilities,
+    expires_at: expiresAt,
+    status: "available",
+    is_active: true,
+  };
+  const basicPayload = {
+    license_key: key,
+    is_active: true,
+  };
+
+  for (const payload of [fullPayload, compatiblePayload, basicPayload]) {
+    const { error } = await supabaseClient.from("licenses").insert(payload);
+    if (!error) return;
+    if (!/column .* does not exist|schema cache/i.test(error.message || "")) {
+      throw error;
+    }
+  }
+}
+
+async function setLicenseStatusDirect(key, status) {
+  setBusy(true, "Actualizando key en modo directo...");
+  const active = status !== "blocked" && status !== "paused" && status !== "expired";
+  let result = await supabaseClient
+    .from("licenses")
+    .update({ status, is_active: active, updated_at: new Date().toISOString() })
+    .eq("license_key", key);
+
+  if (result.error && /column .* does not exist|schema cache/i.test(result.error.message || "")) {
+    result = await supabaseClient
+      .from("licenses")
+      .update({ is_active: active })
+      .eq("license_key", key);
+  }
+  setBusy(false);
+
+  if (result.error) {
+    setKeyStatus(adminErrorMessage(result.error));
+    return;
+  }
+
+  setKeyStatus(`Key ${status} en modo directo.`);
   await loadKeys();
 }
 
@@ -1208,6 +1317,29 @@ function adminErrorMessage(error) {
     return "Ya existe un slug igual. El backend actualizado lo corrige automaticamente; ejecuta supabase/remote_content_setup.sql y refresca.";
   }
   return message;
+}
+
+function isMissingBackendError(error) {
+  const message = error?.message || String(error);
+  return /could not find the function|function .* does not exist|schema cache/i.test(message);
+}
+
+function normalizeDirectLicenseRow(row) {
+  const isActive = row.is_active !== false;
+  const inferredStatus = row.status
+    || (!isActive ? "blocked" : (row.device_id || row.used_at || row.activated_at ? "active" : "available"));
+  return {
+    license_key: row.license_key,
+    status: inferredStatus,
+    label: row.label || "",
+    device_id: row.device_id || "",
+    activated_at: row.activated_at || "",
+    used_at: row.used_at || "",
+    expires_at: row.expires_at || "",
+    capabilities: Array.isArray(row.capabilities) ? row.capabilities : [],
+    created_at: row.created_at || "",
+    updated_at: row.updated_at || row.created_at || "",
+  };
 }
 
 function normalizeKey(value) {
