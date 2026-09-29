@@ -518,6 +518,13 @@ private struct SupabaseLicenseResponse: Decodable {
         case expiresAt = "expires_at"
     }
 
+    init(success: Bool, message: String, capabilities: [String], expiresAt: String?) {
+        self.success = success
+        self.message = message
+        self.capabilities = capabilities
+        self.expiresAt = expiresAt
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         success = (try? container.decode(Bool.self, forKey: .success)) ?? false
@@ -552,6 +559,28 @@ private struct SupabaseRPCError: Decodable {
     let code: String?
 }
 
+private struct DirectLicenseRow: Decodable {
+    let licenseKey: String
+    let status: String?
+    let deviceID: String?
+    let isActive: Bool?
+    let activatedAt: String?
+    let usedAt: String?
+    let expiresAt: String?
+    let capabilities: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case licenseKey = "license_key"
+        case status
+        case deviceID = "device_id"
+        case isActive = "is_active"
+        case activatedAt = "activated_at"
+        case usedAt = "used_at"
+        case expiresAt = "expires_at"
+        case capabilities
+    }
+}
+
 private enum SupabaseLicenseError: LocalizedError {
     case badURL
     case badResponse
@@ -581,11 +610,21 @@ private final class SupabaseLicenseClient {
     }
 
     func activate(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
-        try await callRPC(name: "activate_license", licenseKey: licenseKey, deviceID: deviceID)
+        do {
+            return try await callRPC(name: "activate_license", licenseKey: licenseKey, deviceID: deviceID)
+        } catch {
+            guard isMissingRPCError(error) else { throw error }
+            return try await activateDirect(licenseKey: licenseKey, deviceID: deviceID)
+        }
     }
 
     func check(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
-        try await callRPC(name: "check_license", licenseKey: licenseKey, deviceID: deviceID)
+        do {
+            return try await callRPC(name: "check_license", licenseKey: licenseKey, deviceID: deviceID)
+        } catch {
+            guard isMissingRPCError(error) else { throw error }
+            return try await checkDirect(licenseKey: licenseKey, deviceID: deviceID)
+        }
     }
 
     private func callRPC(name: String, licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
@@ -631,6 +670,208 @@ private final class SupabaseLicenseClient {
             let raw = String(data: data, encoding: .utf8) ?? "Respuesta vacia."
             throw SupabaseLicenseError.unreadable("Could not read the Supabase response: \(raw)")
         }
+    }
+
+    private func activateDirect(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
+        let row = try await fetchDirectLicense(licenseKey: licenseKey)
+        let availability = evaluate(row: row, licenseKey: licenseKey, deviceID: deviceID, allowAvailable: true)
+        if let response = availability {
+            return response
+        }
+
+        let updated = try await updateDirectLicense(licenseKey: licenseKey, deviceID: deviceID)
+        return SupabaseLicenseResponse(
+            success: true,
+            message: "Key activated successfully",
+            capabilities: updated.capabilities ?? row.capabilities ?? [],
+            expiresAt: updated.expiresAt ?? row.expiresAt
+        )
+    }
+
+    private func checkDirect(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
+        let row = try await fetchDirectLicense(licenseKey: licenseKey)
+        if let response = evaluate(row: row, licenseKey: licenseKey, deviceID: deviceID, allowAvailable: false) {
+            return response
+        }
+
+        return SupabaseLicenseResponse(
+            success: true,
+            message: "Key verified",
+            capabilities: row.capabilities ?? [],
+            expiresAt: row.expiresAt
+        )
+    }
+
+    private func fetchDirectLicense(licenseKey: String) async throws -> DirectLicenseRow {
+        let fullSelect = "license_key,status,device_id,is_active,activated_at,used_at,expires_at,capabilities"
+        let basicSelect = "license_key,device_id,is_active,activated_at,used_at"
+
+        do {
+            return try await fetchDirectLicense(licenseKey: licenseKey, select: fullSelect)
+        } catch {
+            if isSchemaCacheError(error) {
+                return try await fetchDirectLicense(licenseKey: licenseKey, select: basicSelect)
+            }
+            throw error
+        }
+    }
+
+    private func fetchDirectLicense(licenseKey: String, select: String) async throws -> DirectLicenseRow {
+        var components = URLComponents(url: SupabaseLicenseConfig.projectURL, resolvingAgainstBaseURL: false)
+        components?.path = "/rest/v1/licenses"
+        components?.queryItems = [
+            URLQueryItem(name: "license_key", value: "eq.\(licenseKey)"),
+            URLQueryItem(name: "select", value: select),
+            URLQueryItem(name: "limit", value: "1")
+        ]
+
+        guard let url = components?.url else {
+            throw SupabaseLicenseError.badURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 25
+        applySupabaseHeaders(to: &request)
+
+        let (data, response) = try await session.data(for: request)
+        try validateRESTResponse(data: data, response: response)
+        let rows = try decoder.decode([DirectLicenseRow].self, from: data)
+        guard let row = rows.first else {
+            throw SupabaseLicenseError.server("Invalid key")
+        }
+        return row
+    }
+
+    private func updateDirectLicense(licenseKey: String, deviceID: String) async throws -> DirectLicenseRow {
+        let now = ISO8601DateFormatter().string(from: Date())
+        let fullPayload: [String: Any] = [
+            "device_id": deviceID,
+            "activated_at": now,
+            "used_at": now,
+            "status": "active",
+            "is_active": true
+        ]
+        let basicPayload: [String: Any] = [
+            "device_id": deviceID,
+            "activated_at": now,
+            "used_at": now,
+            "is_active": true
+        ]
+
+        do {
+            return try await patchDirectLicense(licenseKey: licenseKey, payload: fullPayload)
+        } catch {
+            if isSchemaCacheError(error) {
+                return try await patchDirectLicense(licenseKey: licenseKey, payload: basicPayload)
+            }
+            throw error
+        }
+    }
+
+    private func patchDirectLicense(licenseKey: String, payload: [String: Any]) async throws -> DirectLicenseRow {
+        var components = URLComponents(url: SupabaseLicenseConfig.projectURL, resolvingAgainstBaseURL: false)
+        components?.path = "/rest/v1/licenses"
+        components?.queryItems = [
+            URLQueryItem(name: "license_key", value: "eq.\(licenseKey)"),
+            URLQueryItem(name: "select", value: "license_key,status,device_id,is_active,activated_at,used_at,expires_at,capabilities")
+        ]
+
+        guard let url = components?.url else {
+            throw SupabaseLicenseError.badURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.timeoutInterval = 25
+        applySupabaseHeaders(to: &request)
+        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await session.data(for: request)
+        try validateRESTResponse(data: data, response: response)
+        let rows = try decoder.decode([DirectLicenseRow].self, from: data)
+        return rows.first ?? DirectLicenseRow(
+            licenseKey: licenseKey,
+            status: "active",
+            deviceID: payload["device_id"] as? String,
+            isActive: true,
+            activatedAt: payload["activated_at"] as? String,
+            usedAt: payload["used_at"] as? String,
+            expiresAt: nil,
+            capabilities: []
+        )
+    }
+
+    private func evaluate(row: DirectLicenseRow, licenseKey: String, deviceID: String, allowAvailable: Bool) -> SupabaseLicenseResponse? {
+        if licenseKey.range(of: #"^TRYHARD-[0-9]+$"#, options: .regularExpression) != nil {
+            return SupabaseLicenseResponse(success: false, message: "Old numeric keys are disabled", capabilities: [], expiresAt: row.expiresAt)
+        }
+
+        if let expiresAt = row.expiresAt,
+           let expirationDate = LicenseDateParser.date(from: expiresAt),
+           expirationDate <= Date() {
+            return SupabaseLicenseResponse(success: false, message: "Key expired", capabilities: [], expiresAt: expiresAt)
+        }
+
+        let status = (row.status ?? "").lowercased()
+        if ["paused", "blocked", "expired"].contains(status) || row.isActive == false {
+            return SupabaseLicenseResponse(success: false, message: "Key \(status.isEmpty ? "unavailable" : status)", capabilities: [], expiresAt: row.expiresAt)
+        }
+
+        if row.deviceID == deviceID && (status == "active" || row.usedAt != nil || row.activatedAt != nil) {
+            return SupabaseLicenseResponse(success: true, message: "Key verified", capabilities: row.capabilities ?? [], expiresAt: row.expiresAt)
+        }
+
+        if let existingDevice = row.deviceID, !existingDevice.isEmpty, existingDevice != deviceID {
+            return SupabaseLicenseResponse(success: false, message: "This key is already used on another device", capabilities: [], expiresAt: row.expiresAt)
+        }
+
+        if !allowAvailable {
+            return SupabaseLicenseResponse(success: false, message: "Key is not active on this device", capabilities: [], expiresAt: row.expiresAt)
+        }
+
+        if status.isEmpty || status == "available" {
+            return nil
+        }
+
+        return SupabaseLicenseResponse(success: false, message: "This key has already been used", capabilities: [], expiresAt: row.expiresAt)
+    }
+
+    private func applySupabaseHeaders(to request: inout URLRequest) {
+        request.setValue(SupabaseLicenseConfig.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(SupabaseLicenseConfig.publishableKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+    }
+
+    private func validateRESTResponse(data: Data, response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SupabaseLicenseError.badResponse
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            if let rpcError = try? decoder.decode(SupabaseRPCError.self, from: data),
+               let message = rpcError.message,
+               !message.isEmpty {
+                throw SupabaseLicenseError.server(message)
+            }
+
+            let raw = String(data: data, encoding: .utf8) ?? "Error HTTP \(httpResponse.statusCode)."
+            throw SupabaseLicenseError.server(raw)
+        }
+    }
+
+    private func isMissingRPCError(_ error: Error) -> Bool {
+        guard case SupabaseLicenseError.server(let message) = error else { return false }
+        return message.range(of: "could not find the function", options: .caseInsensitive) != nil
+            || message.range(of: "schema cache", options: .caseInsensitive) != nil
+    }
+
+    private func isSchemaCacheError(_ error: Error) -> Bool {
+        guard case SupabaseLicenseError.server(let message) = error else { return false }
+        return message.range(of: "schema cache", options: .caseInsensitive) != nil
+            || message.range(of: "column", options: .caseInsensitive) != nil
     }
 }
 

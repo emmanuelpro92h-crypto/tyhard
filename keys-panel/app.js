@@ -873,14 +873,18 @@ async function createLicenseDirect(key, durationHours, label, capabilities) {
     license_key: key,
     is_active: true,
   };
+  let lastError = null;
 
   for (const payload of [fullPayload, compatiblePayload, basicPayload]) {
     const { error } = await supabaseClient.from("licenses").insert(payload);
     if (!error) return;
+    lastError = error;
     if (!/column .* does not exist|schema cache/i.test(error.message || "")) {
       throw error;
     }
   }
+
+  throw lastError || new Error("No se pudo crear la key en Supabase.");
 }
 
 async function setLicenseStatusDirect(key, status) {
@@ -1320,6 +1324,9 @@ function adminErrorMessage(error) {
   }
   if (/relation .* does not exist|remote_content/i.test(message)) {
     return "Faltan las tablas del panel. Ejecuta supabase/remote_content_setup.sql en Supabase.";
+  }
+  if (/could not find the table .*licenses|relation .*licenses.* does not exist/i.test(message)) {
+    return "Falta instalar el backend de keys. Ejecuta supabase/licenses_setup.sql o supabase/setup_all.sql en Supabase.";
   }
   if (/slug/i.test(message) && /duplicate|unique/i.test(message)) {
     return "Ya existe un slug igual. El backend actualizado lo corrige automaticamente; ejecuta supabase/remote_content_setup.sql y refresca.";
